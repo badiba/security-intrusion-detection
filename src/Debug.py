@@ -1,11 +1,27 @@
 import timeit
 
 Scopes = []
+IsDebugActive = False
+
+
+def EnableDebug():
+    global IsDebugActive
+    IsDebugActive = True
+
+
+def DisableDebug():
+    global IsDebugActive
+    IsDebugActive = False
+
+
+def PrintDebugMessage(message):
+    if (IsDebugActive):
+        print(message)
 
 
 def Validate(condition, message):
     if (not condition):
-        print(message)
+        PrintDebugMessage(message)
 
 
 def BeginScope(scopeName):
@@ -14,8 +30,9 @@ def BeginScope(scopeName):
 
 def EndScope():
     if (len(Scopes) <= 0):
-        print("Trying to end a scope while there is no scope available.")
+        PrintDebugMessage(
+            "Trying to end a scope while there is no scope available.")
     else:
         scope = Scopes.pop(0)
-        print("Debug: " + scope[1] + " took " +
-              str(timeit.default_timer() - scope[0]) + " seconds")
+        PrintDebugMessage("Debug: " + scope[1] + " took " +
+                          str(timeit.default_timer() - scope[0]) + " seconds")
