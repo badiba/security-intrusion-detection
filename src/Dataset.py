@@ -2,6 +2,7 @@ from logging import debug
 import numpy as np
 import os
 import sys
+from scipy.sparse import data
 from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import PassiveAggressiveClassifier
@@ -13,7 +14,7 @@ import Debug
 from sklearn import preprocessing
 
 class Dataset:
-    def __init__(self, path, labelColumnName, currentGoodLabelName, finalGoodLabelName, finalEvilLabelName):
+    def __init__(self, path, labelColumnName, currentGoodLabelName, finalGoodLabelName, finalEvilLabelName, trainSetSize):
         Debug.BeginScope("Data preprocessing")
 
         self._goodLabelName = finalGoodLabelName
@@ -32,13 +33,39 @@ class Dataset:
         dataset.loc[dataset[labelColumnName] == currentGoodLabelName, labelColumnName] = finalGoodLabelName
         dataset.loc[dataset[labelColumnName] != currentGoodLabelName, labelColumnName] = finalEvilLabelName
 
+        # Balance the dataset.
+        evils = dataset[dataset[labelColumnName] == finalEvilLabelName]
+        goods = dataset[dataset[labelColumnName] == finalGoodLabelName]
+        evilCount = len(evils.index)
+        goodCount = len(goods.index)
+
+        if (evilCount > goodCount):
+            evils = evils.iloc[:goodCount, :]
+        elif (goodCount > evilCount):
+            goods = goods.iloc[:evilCount, :]
+
+        dataset = pd.concat([evils, goods])
+        dataset = shuffle(dataset)
+
+        # Keep a portion of the dataset as human-in-the-loop examples.
+        self._humanExamples = dataset.iloc[-500000:, :]
+        dataset = dataset.iloc[:-10000, :]
+
+        # Prepare human-in-the-loop examples.
+        self._humanData = self._humanExamples.iloc[:, :-1]
+        self._humanLabels = self._humanExamples.iloc[:, -1:]
+        xHuman = self._humanData.values
+        min_max_scaler = preprocessing.MinMaxScaler(feature_range=(-1, 1))
+        xHuman_scaled = min_max_scaler.fit_transform(xHuman)
+        self._humanData = pd.DataFrame(
+            xHuman_scaled, columns=self._humanData.columns)
+
         # Split train and test set.
         self._size = len(dataset.index)
-        splitSize = int(self._size / 2)
-        self._trainData = dataset.iloc[:splitSize, :-1]
-        self._trainLabels = dataset.iloc[:splitSize, -1:]
-        self._testData = dataset.iloc[splitSize:, :-1]
-        self._testLabels = dataset.iloc[splitSize:, -1:]
+        self._trainData = dataset.iloc[:trainSetSize, :-1]
+        self._trainLabels = dataset.iloc[:trainSetSize, -1:]
+        self._testData = dataset.iloc[trainSetSize:, :-1]
+        self._testLabels = dataset.iloc[trainSetSize:, -1:]
 
         # Normalize train data.
         xTrain = self._trainData.values
@@ -72,5 +99,7 @@ class Dataset:
         testGoodPercent = (testGoodsCount / float(testGoodsCount + testEvilsCount)) * 100.0
 
         print("Dataset size is {}".format(self._size))
+        print("Train set size is {}".format(len(self._trainData.index)))
+        print("Test set size is {}".format(len(self._testData.index)))
         print("Train set has {} percent good samples".format(trainGoodPercent))
         print("Test set has {} percent good samples".format(testGoodPercent))
