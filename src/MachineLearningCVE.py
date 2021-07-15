@@ -1,77 +1,47 @@
+from logging import debug
 import numpy as np
 import os
 import sys
 from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model import PassiveAggressiveClassifier
+from sklearn.linear_model import Perceptron
 from sklearn.utils import shuffle
 import pandas as pd
 import random
 import Debug
+from Dataset import Dataset
+from sklearn import preprocessing
 
 
 class MachineLearningCVE:
     def __init__(self):
-        Debug.BeginScope("Data preprocessing")
-
         dirname = os.path.dirname(os.path.abspath(__file__))
-        dataset = pd.read_csv(os.path.join(
-            dirname, "dataset", "MachineLearningCVE", "Wednesday-workingHours.pcap_ISCX.csv"))
+        filepath = os.path.join(dirname, "dataset", "MachineLearningCVE", "Wednesday-workingHours.pcap_ISCX.csv")
+        self._dataset = Dataset(filepath, " Label", "BENIGN", "BENIGN", "EVIL")
 
-        dataset.replace([np.inf, -np.inf], np.nan, inplace=True)
-        dataset = dataset.dropna()
+    def Optimize(self):
+        cValues = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000]
+        tolValues = [0.00001, 0.0001, 0.001, 0.01, 0.1, 1]
+        lossValues = ["hinge", "squared_hinge"]
+        max_iter = 50
 
-        evilsRaw = dataset[dataset[" Label"] != "BENIGN"]
-        goods = dataset[dataset[" Label"] == "BENIGN"]
-        evils = evilsRaw.copy()
-        evils[" Label"] = "EVIL"
+        parameters = {'C': cValues, 'loss': lossValues, 'tol': tolValues}
 
-        evils = shuffle(evils)
-        goods = shuffle(goods)
-
-        evilTrain = evils.iloc[:5, :]
-        goodTrain = goods.iloc[:5, :]
-
-        evilTests = evils.iloc[5:400, :]
-        goodTests = goods.iloc[5:400, :]
-        testData = pd.concat([evilTests, goodTests])
-
-        dataset = shuffle(pd.concat([evilTrain, goodTrain]))
-
-        data = dataset.iloc[:, :-1]
-        labels = dataset.iloc[:, -1:]
-
-        Debug.EndScope()
-        Debug.BeginScope("Train")
-
-        svc = SVC(kernel='linear', C=0.1)
-        svc.fit(data, labels.values.ravel())
-
-        Debug.EndScope()
-        Debug.BeginScope("Test")
-
-        predictions = svc.predict(testData.iloc[:, :-1])
-
-        Debug.EndScope()
-        Debug.BeginScope("Getting test results")
-
-        correctPredictionCount = 0
-        totalPredictionCount = 0
-
-        for index, row in testData.iterrows():
-            totalPredictionCount += 1
-
-            if (row[-1] == predictions[totalPredictionCount - 1]):
-                correctPredictionCount += 1
-
-        Debug.EndScope()
-
-        print(correctPredictionCount)
-        print(totalPredictionCount)
+        self._pac = PassiveAggressiveClassifier(early_stopping=True, max_iter=max_iter)
+        clf = GridSearchCV(self._pac, parameters)
+        clf.fit(self._dataset._trainData, self._dataset._trainLabels.values.ravel())
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.max_columns', None)
+        print(pd.concat([pd.DataFrame(clf.cv_results_["params"]), pd.DataFrame(
+            clf.cv_results_["mean_test_score"], columns=["Accuracy"])], axis=1))
 
 
 def main():
-    Debug.BeginScope("svm")
+    Debug.EnableDebug()
+    Debug.BeginScope("Main")
     svm = MachineLearningCVE()
+    svm.Optimize()
     Debug.EndScope()
 
 
