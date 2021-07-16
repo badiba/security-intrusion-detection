@@ -18,40 +18,47 @@ class MachineLearningCVE:
     def __init__(self):
         dirname = os.path.dirname(os.path.abspath(__file__))
         filepath = os.path.join(dirname, "dataset", "MachineLearningCVE", "Wednesday-workingHours.pcap_ISCX.csv")
-        self._dataset = Dataset(filepath, " Label", "BENIGN", "BENIGN", "EVIL", 100)
+        self._dataset = Dataset(filepath, " Label", "BENIGN", "BENIGN", "EVIL", 1000)
 
     def GetTestAccuracy(self, predictions):
         correctPredictions = 0
-        trueZero = 0
-        trueOne = 0
-        falseZero = 0
-        falseOne = 0
+        trueNegative = 0
+        truePositive = 0
+        falseNegative = 0
+        falsePositive = 0
 
         for i in range(len(predictions)):
             if (predictions[i] == self._dataset._testLabels.iloc[i][' Label']):
                 if (predictions[i] == "BENIGN"):
-                    trueZero += 1
+                    trueNegative += 1
                 else:
-                    trueOne += 1
+                    truePositive += 1
 
                 correctPredictions += 1
 
             else:
                 if (predictions[i] == "BENIGN"):
-                    falseZero += 1
+                    falseNegative += 1
                 else:
-                    falseOne += 1
+                    falsePositive += 1
 
         accuracy = correctPredictions / len(predictions)
-        return accuracy, trueZero, trueOne, falseZero, falseOne
+        return accuracy, trueNegative, truePositive, falseNegative, falsePositive
 
     def PrintConfusionMatrix(self):
         predictions = self._model.predict(self._dataset._testData)
-        acc, tz, to, fz, fo = self.GetTestAccuracy(predictions)
-        print("True BENIGN: " + str(tz))
-        print("True EVIL: " + str(to))
-        print("False BENIGN: " + str(fz))
-        print("False EVIL: " + str(fo))
+        acc, tn, tp, fn, fp = self.GetTestAccuracy(predictions)
+        precision = tp / float(tp + fp)
+        specificity = tn / float(tn + fp)
+        recall = tp / float(tp + fn)
+
+        print("True Negative: " + str(tn))
+        print("True Positive: " + str(tp))
+        print("False Negative: " + str(fn))
+        print("False Positive: " + str(fp))
+        print("Specificity: {0:0.2f}".format(specificity))
+        print("Recall: {0:0.2f}".format(recall))
+        print("Precision: {0:0.2f}".format(precision))
 
     def Optimize(self, parameters):
         clf = GridSearchCV(self._model, parameters)
@@ -110,7 +117,7 @@ class MachineLearningCVE:
         Debug.BeginScope("Test")
 
         score = self._model.score(self._dataset._testData, self._dataset._testLabels)
-        print(score)
+        print("Accuracy: {0:0.2f}".format(score))
 
         Debug.EndScope()
         return score
@@ -118,18 +125,23 @@ class MachineLearningCVE:
     def PartialFit(self):
         self._model.partial_fit(self._dataset._humanData, self._dataset._humanLabels.values.ravel(), ["BENIGN", "EVIL"])
 
+    def PrintSeparator(self):
+        print("----------------")
+
 
 def main():
-    Debug.EnableDebug()
+    Debug.DisableDebug()
     Debug.BeginScope("Main")
     model = MachineLearningCVE()
     #model.OptimizePerceptron()
+    model.PrintSeparator()
     model.TrainPassiveAggressive()
     model.Test()
-    model.PrintConfusionMatrix()
+    #model.PrintConfusionMatrix()
+    model.PrintSeparator()
     model.PartialFit()
     model.Test()
-    model.PrintConfusionMatrix()
+    #model.PrintConfusionMatrix()
 
 
     Debug.EndScope()
