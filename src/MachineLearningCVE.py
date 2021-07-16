@@ -12,7 +12,13 @@ import random
 import Debug
 from Dataset import Dataset
 from sklearn import preprocessing
+import time
 
+def PrintSeparator():
+    print("----------------")
+
+def PrintBlank():
+    print("                ")
 
 class MachineLearningCVE:
     def __init__(self):
@@ -67,6 +73,10 @@ class MachineLearningCVE:
         pd.set_option('display.max_columns', None)
         grid = pd.concat([pd.DataFrame(clf.cv_results_["params"]), pd.DataFrame(
             clf.cv_results_["mean_test_score"], columns=["Accuracy"])], axis=1)
+
+        print(grid)
+        PrintSeparator()
+        print("Parameters with max accuracy:")
         print(grid.loc[grid['Accuracy'].idxmax()])
 
     def OptimizePassiveAggressive(self):
@@ -77,14 +87,7 @@ class MachineLearningCVE:
         lossValues = ["hinge", "squared_hinge"]
 
         parameters = {'C': cValues, 'loss': lossValues, 'tol': tolValues}
-
-        clf = GridSearchCV(self._model, parameters)
-        clf.fit(self._dataset._trainData, self._dataset._trainLabels.values.ravel())
-        pd.set_option('display.max_rows', None)
-        pd.set_option('display.max_columns', None)
-        grid = pd.concat([pd.DataFrame(clf.cv_results_["params"]), pd.DataFrame(
-            clf.cv_results_["mean_test_score"], columns=["Accuracy"])], axis=1)
-        print(grid.loc[grid['Accuracy'].idxmax()])
+        self.Optimize(parameters)
 
     def OptimizePerceptron(self):
         self._model = Perceptron()
@@ -122,27 +125,61 @@ class MachineLearningCVE:
         Debug.EndScope()
         return score
 
-    def PartialFit(self):
+    def PartialFitAll(self):
         self._model.partial_fit(self._dataset._humanData, self._dataset._humanLabels.values.ravel(), ["BENIGN", "EVIL"])
 
-    def PrintSeparator(self):
-        print("----------------")
+    def PartialFit(self, example, label):
+        self._model.partial_fit(example, label, ["BENIGN", "EVIL"])
+
+def GetOptimizationResult():
+    model = MachineLearningCVE()
+    PrintSeparator()
+    model.OptimizePassiveAggressive()
+
+def AutoSimulate():
+    model = MachineLearningCVE()
+    PrintSeparator()
+
+    model.TrainPassiveAggressive()
+    model.Test()
+    model.PrintConfusionMatrix()
+    PrintSeparator()
+
+    model.PartialFitAll()
+    model.Test()
+    model.PrintConfusionMatrix()
+
+def ManualSimulate():
+    model = MachineLearningCVE()
+    PrintSeparator()
+
+    model.TrainPassiveAggressive()
+    model.Test()
+    #model.PrintConfusionMatrix()
+    PrintSeparator()
+
+    print("Entered manual simulation")
+    PrintBlank()
+
+    index = 0
+
+    while (True):
+        example = model._dataset._humanData.iloc[[index]]
+        label = model._dataset._humanLabels.iloc[[index]].values.ravel()
+        index += 1
+
+        print(example)
+        print(label)
+
+        model.PartialFit(example, label)
+        time.sleep(1)
 
 
 def main():
     Debug.DisableDebug()
     Debug.BeginScope("Main")
-    model = MachineLearningCVE()
-    #model.OptimizePerceptron()
-    model.PrintSeparator()
-    model.TrainPassiveAggressive()
-    model.Test()
-    #model.PrintConfusionMatrix()
-    model.PrintSeparator()
-    model.PartialFit()
-    model.Test()
-    #model.PrintConfusionMatrix()
 
+    ManualSimulate()
 
     Debug.EndScope()
 

@@ -48,8 +48,9 @@ class Dataset:
         dataset = shuffle(dataset)
 
         # Keep a portion of the dataset as human-in-the-loop examples.
-        self._humanExamples = dataset.iloc[-500000:, :]
-        dataset = dataset.iloc[:-10000, :]
+        self._humanExampleSize = 200000
+        self._humanExamples = dataset.iloc[-self._humanExampleSize:, :]
+        dataset = dataset.iloc[:-self._humanExampleSize, :]
 
         # Prepare human-in-the-loop examples.
         self._humanData = self._humanExamples.iloc[:, :-1]
@@ -101,5 +102,6 @@ class Dataset:
         print("Dataset size is {}".format(self._size))
         print("Train set size is {}".format(len(self._trainData.index)))
         print("Test set size is {}".format(len(self._testData.index)))
-        print("Train set has {} percent good samples".format(trainGoodPercent))
-        print("Test set has {} percent good samples".format(testGoodPercent))
+        print("Train set has {0:0.2f} percent benign (not attack) samples".format(trainGoodPercent))
+        print("Test set has {0:0.2f} percent benign (not attack) samples".format(testGoodPercent))
+        print("{} samples will be used for online learning".format(self._humanExampleSize))
