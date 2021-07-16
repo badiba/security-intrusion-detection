@@ -100,10 +100,10 @@ class MachineLearningCVE:
         self.Optimize(parameters)
 
 
-    def TrainPassiveAggressive(self):
+    def TrainPassiveAggressive(self, cValue):
         Debug.BeginScope("Train")
 
-        self._model = PassiveAggressiveClassifier(early_stopping=False, max_iter=1000, C=0.01, loss="hinge", tol=0.00001)
+        self._model = PassiveAggressiveClassifier(early_stopping=False, max_iter=1000, C=cValue, loss="hinge", tol=0.00001)
         self._model.fit(self._dataset._trainData, self._dataset._trainLabels.values.ravel())
 
         Debug.EndScope()
@@ -131,6 +131,9 @@ class MachineLearningCVE:
     def PartialFit(self, example, label):
         self._model.partial_fit(example, label, ["BENIGN", "EVIL"])
 
+    def PartialPredict(self, example):
+        return self._model.predict(example)
+
 def GetOptimizationResult():
     model = MachineLearningCVE()
     PrintSeparator()
@@ -140,20 +143,20 @@ def AutoSimulate():
     model = MachineLearningCVE()
     PrintSeparator()
 
-    model.TrainPassiveAggressive()
+    model.TrainPassiveAggressive(0.01)
     model.Test()
-    model.PrintConfusionMatrix()
+    #model.PrintConfusionMatrix()
     PrintSeparator()
 
     model.PartialFitAll()
     model.Test()
-    model.PrintConfusionMatrix()
+    #model.PrintConfusionMatrix()
 
 def ManualSimulate():
     model = MachineLearningCVE()
     PrintSeparator()
 
-    model.TrainPassiveAggressive()
+    model.TrainPassiveAggressive(0.0001)
     model.Test()
     #model.PrintConfusionMatrix()
     PrintSeparator()
@@ -165,14 +168,15 @@ def ManualSimulate():
 
     while (True):
         example = model._dataset._humanData.iloc[[index]]
+        prediction = model.PartialPredict(example)
         label = model._dataset._humanLabels.iloc[[index]].values.ravel()
+        isCorrect = prediction[0] == label[0]
         index += 1
 
-        print(example)
-        print(label)
+        print("Id: {} - {} - Prediction: {} - Actual: {}".format(index, isCorrect, prediction, label))
 
         model.PartialFit(example, label)
-        time.sleep(1)
+        time.sleep(0.5)
 
 
 def main():
