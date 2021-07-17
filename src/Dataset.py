@@ -48,7 +48,7 @@ class Dataset:
         dataset = shuffle(dataset)
 
         # Keep a portion of the dataset as human-in-the-loop examples.
-        self._humanExampleSize = 200000
+        self._humanExampleSize = 400000
         self._humanExamples = dataset.iloc[-self._humanExampleSize:, :]
         dataset = dataset.iloc[:-self._humanExampleSize, :]
 

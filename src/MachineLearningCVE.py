@@ -17,6 +17,7 @@ from threading import Thread
 import time
 import inspect
 from multiprocessing.connection import Listener
+import pickle
 
 def PrintSeparator():
     print("----------------")
@@ -95,29 +96,10 @@ class MachineLearningCVE:
         parameters = {'C': cValues, 'loss': lossValues, 'tol': tolValues}
         self.Optimize(parameters)
 
-    def OptimizePerceptron(self):
-        self._model = Perceptron()
-
-        penaltyValues = [None, "l1", "l2"]
-        alphaValues = [0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 1]
-        etaValues = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]
-
-        parameters = {'penalty': penaltyValues, 'alpha': alphaValues, 'eta0': etaValues}
-        self.Optimize(parameters)
-
-
     def TrainPassiveAggressive(self, cValue):
         Debug.BeginScope("Train")
 
         self._model = PassiveAggressiveClassifier(early_stopping=False, max_iter=1000, C=cValue, loss="hinge", tol=0.00001)
-        self._model.fit(self._dataset._trainData, self._dataset._trainLabels.values.ravel())
-
-        Debug.EndScope()
-
-    def TrainPerceptron(self):
-        Debug.BeginScope("Train")
-
-        self._model = Perceptron(alpha=0.001, eta0=0.05, penalty='l2')
         self._model.fit(self._dataset._trainData, self._dataset._trainLabels.values.ravel())
 
         Debug.EndScope()
@@ -142,6 +124,19 @@ class MachineLearningCVE:
     def PartialPredict(self, example):
         return self._model.predict(example)
 
+    def PrepareModel(self, learningRate):
+        dirname = os.path.dirname(os.path.abspath(__file__))
+        filepath = os.path.join(dirname, "trainedModel.pkl")
+        fileExists = os.path.isfile(filepath)
+        
+        if (fileExists):
+            with open(filepath, 'rb') as fid:
+                self._model = pickle.load(fid)
+        else:
+            self.TrainPassiveAggressive(learningRate)
+            with open(filepath, 'wb') as fid:
+                pickle.dump(self._model, fid)
+
 
 def GetOptimizationResult():
     model = MachineLearningCVE()
@@ -152,7 +147,8 @@ def AutoSimulate():
     model = MachineLearningCVE()
     PrintSeparator()
 
-    model.TrainPassiveAggressive(0.01)
+    model.PrepareModel(0.01)
+
     model.Test()
     model.PrintConfusionMatrix()
     PrintSeparator()
@@ -205,7 +201,8 @@ def ManualSimulate():
     model = MachineLearningCVE()
     PrintSeparator()
 
-    model.TrainPassiveAggressive(0.0001)
+    model.PrepareModel(0.0001)
+
     model.Test()
     #model.PrintConfusionMatrix()
     PrintSeparator()
