@@ -197,6 +197,8 @@ def ListenUserCommands(model):
                 label = model._dataset._humanLabels.iloc[[id]].values.ravel()
                 model.PartialFit(example, label)
                 conn.send("Using the packet with id {} for learning".format(id))
+            else:
+                conn.send("Wrong command")
 
 
 def ManualSimulate():
