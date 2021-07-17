@@ -12,7 +12,11 @@ import random
 import Debug
 from Dataset import Dataset
 from sklearn import preprocessing
+import threading
+from threading import Thread
 import time
+import inspect
+from multiprocessing.connection import Listener
 
 def PrintSeparator():
     print("----------------")
@@ -20,11 +24,13 @@ def PrintSeparator():
 def PrintBlank():
     print("                ")
 
+lock = threading.Lock()
+
 class MachineLearningCVE:
     def __init__(self):
         dirname = os.path.dirname(os.path.abspath(__file__))
         filepath = os.path.join(dirname, "dataset", "MachineLearningCVE", "Wednesday-workingHours.pcap_ISCX.csv")
-        self._dataset = Dataset(filepath, " Label", "BENIGN", "BENIGN", "EVIL", 1000)
+        self._dataset = Dataset(filepath, " Label", "BENIGN", "BENIGN", "EVIL", 100)
 
     def GetTestAccuracy(self, predictions):
         correctPredictions = 0
@@ -116,11 +122,13 @@ class MachineLearningCVE:
 
         Debug.EndScope()
 
-    def Test(self):
+    def Test(self, printDirectly = True):
         Debug.BeginScope("Test")
 
         score = self._model.score(self._dataset._testData, self._dataset._testLabels)
-        print("Accuracy: {0:0.2f}".format(score))
+
+        if (printDirectly):
+            print("Accuracy: {0:0.2f}".format(score))
 
         Debug.EndScope()
         return score
@@ -134,6 +142,7 @@ class MachineLearningCVE:
     def PartialPredict(self, example):
         return self._model.predict(example)
 
+
 def GetOptimizationResult():
     model = MachineLearningCVE()
     PrintSeparator()
@@ -145,12 +154,50 @@ def AutoSimulate():
 
     model.TrainPassiveAggressive(0.01)
     model.Test()
-    #model.PrintConfusionMatrix()
+    model.PrintConfusionMatrix()
     PrintSeparator()
 
     model.PartialFitAll()
     model.Test()
-    #model.PrintConfusionMatrix()
+    model.PrintConfusionMatrix()
+
+
+def SimulatePacketReceive(model):
+    index = 0
+
+    while (True):
+        with lock:
+            example = model._dataset._humanData.iloc[[index]]
+            prediction = model.PartialPredict(example)
+            label = model._dataset._humanLabels.iloc[[index]].values.ravel()
+            isCorrect = prediction[0] == label[0]
+            
+            print("Id: {} - {} - Prediction: {} - Actual: {}".format(index, isCorrect, prediction, label))
+
+            index += 1
+
+        time.sleep(1)
+
+
+def ListenUserCommands(model):
+    address = ('localhost', 6000)
+    listener = Listener(address, authkey=b'secret password')
+    conn = listener.accept()
+
+    while (True):
+        msg = conn.recv()
+
+        with lock:
+            if (msg == "acc"):
+                acc = model.Test(False)
+                conn.send("Accuracy: {}".format(acc))
+            elif (msg.split()[0] == "w" and len(msg.split()) == 2):
+                id = msg.split()[1]
+                example = model._dataset._humanData.iloc[[id]]
+                label = model._dataset._humanLabels.iloc[[id]].values.ravel()
+                model.PartialFit(example, label)
+                conn.send("Using the packet with id {} for learning".format(id))
+
 
 def ManualSimulate():
     model = MachineLearningCVE()
@@ -164,20 +211,12 @@ def ManualSimulate():
     print("Entered manual simulation")
     PrintBlank()
 
-    index = 0
+    packetReceiveThread = Thread(target=SimulatePacketReceive, args=(model,))
+    userInputThread = Thread(target=ListenUserCommands, args=(model,))
 
-    while (True):
-        example = model._dataset._humanData.iloc[[index]]
-        prediction = model.PartialPredict(example)
-        label = model._dataset._humanLabels.iloc[[index]].values.ravel()
-        isCorrect = prediction[0] == label[0]
-        index += 1
-
-        print("Id: {} - {} - Prediction: {} - Actual: {}".format(index, isCorrect, prediction, label))
-
-        model.PartialFit(example, label)
-        time.sleep(0.5)
-
+    packetReceiveThread.start()
+    userInputThread.start()
+    
 
 def main():
     Debug.DisableDebug()
